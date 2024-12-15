@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>To-Do List</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
+    }
+
+    .landing-page {
+      background-image: url('/static/images/landing_page.jpg');
+      background-size: cover;
+      background-position: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      display: none; /* Initially hidden */
+    }
+
+    .banner {
+      font-size: 3rem;
+      color: white;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+      margin-bottom: 20px;
+    }
+
+    .enter-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      padding: 10px 20px;
+      color: white;
+      background-color: rgba(0, 0, 0, 0.7);
+      border: 2px solid white;
+      border-radius: 8px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .enter-button:hover {
+      background-color: rgba(255, 255, 255, 0.9);
+      color: black;
+    }
+
+    .enter-button img {
+      width: 20px;
+      margin-right: 10px;
+    }
+
+    #login, #app {
+      display: none; /* Hidden by default */
+    }
+  </style>
+</head>
+<body>
+  <!-- Landing Page -->
+  <div class="landing-page" id="landing-page">
+    <div class="banner">Lilli's & Jana's Space</div>
+    <a href="/login" class="enter-button">
+    🚪 Click to Enter
+</a>
+
+
+  </div>
+
+  <!-- Login Page -->
+  <div id="login">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="login()">Login</button>
+  </div>
+
+  <!-- To-Do App -->
+  <div id="app">
+    <h1>To-Do List</h1>
+    <div id="new-task">
+      <input type="text" id="task-name" placeholder="Task Name">
+      <input type="date" id="task-date">
+      <textarea id="task-desc" placeholder="Description"></textarea>
+      <input type="text" id="task-fav" placeholder="Favourite Moment">
+      <button onclick="addTask()">Add Task</button>
+    </div>
+    <ul id="tasks"></ul>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    // Show the landing page on load
+    document.getElementById('landing-page').style.display = 'flex';
+
+    // Function to navigate to the To-Do List app
+    function showToDoApp() {
+      document.getElementById('landing-page').style.display = 'none';
+      document.getElementById('login').style.display = 'block'; // Show login form
+    }
+  </script>
+</body>
+</html>

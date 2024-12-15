@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard - To-Do List</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-image: url('/static/images/dashboard.jpeg');
+      background-size: cover;
+      background-position: center;
+      color: #333;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2.5rem;
+      color: #4b0082; /* Dark purple */
+    }
+
+    .todo-container {
+      margin: 20px auto;
+      max-width: 1000px;
+      background: rgba(255, 255, 255, 0.9); /* Semi-transparent white */
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+      padding: 20px;
+      box-sizing: border-box; /* Include padding in dimensions */
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      table-layout: fixed; /* Ensure fixed layout for columns */
+    }
+
+    th, td {
+      text-align: center;
+      padding: 10px;
+      border-bottom: 1px solid #ddd;
+      vertical-align: middle;
+      word-wrap: break-word;
+    }
+
+    th {
+      background-color: #4b0082; /* Dark purple */
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .done-circle {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid #4b0082; /* Dark purple outline */
+      background-color: transparent; /* Default to unfilled */
+      cursor: pointer;
+      transition: background-color 0.3s ease, border-color 0.3s ease;
+    }
+
+    .done-circle.done {
+      background-color: #4b0082; /* Dark purple when task is done */
+      border-color: #4b0082;
+    }
+
+    .delete-btn {
+      color: #4b0082; /* Dark purple */
+      font-weight: bold;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-size: 1rem;
+    }
+
+    .delete-btn:hover {
+      color: red;
+    }
+
+    .task-done {
+      text-decoration: line-through;
+      color: gray;
+    }
+
+    .add-task-row {
+      text-align: center;
+      padding: 10px 0;
+    }
+
+    .add-task-row input, .add-task-row select, .add-task-row button {
+      padding: 8px;
+      margin: 5px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+
+    .add-task-row button {
+      background-color: #4b0082; /* Dark purple */
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    .add-task-row button:hover {
+      background-color: #6a0dad; /* Slightly lighter purple */
+    }
+
+    th.sortable:hover {
+      background-color: #6a0dad; /* Lighter purple for hover */
+    }
+
+    th.sortable {
+      cursor: pointer;
+    }
+
+    th.sorted-asc::after,
+    th.sorted-desc::after {
+      content: '';
+      display: inline-block;
+      margin-left: 5px;
+      border-width: 0 5px 5px;
+      border-style: solid;
+      border-color: transparent transparent #fff transparent;
+    }
+
+    th.sorted-desc::after {
+      border-width: 5px 5px 0;
+      border-color: #fff transparent transparent transparent;
+    }
+
+    th.sorted {
+      background-color: #4b0082; /* Highlight for sorted column */
+    }
+
+    .description-cell {
+      max-width: 200px; /* Limit default width */
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .description-cell.expanded {
+      max-width: none; /* Remove width limit */
+      white-space: normal; /* Allow wrapping */
+      word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+  <h1>To-Do List</h1>
+  <div class="todo-container">
+    <table id="todo-table">
+      <thead>
+        <tr>
+          <th>To-Do Name</th>
+          <th class="sortable" onclick="sortBy('category')">Category</th>
+          <th class="sortable" onclick="sortBy('date_limitation')">Deadline <span id="sort-date"></span></th>
+          <th>Description</th>
+          <th>Favourite Moment Lilli</th>
+          <th>Favourite Moment Jana</th>
+          <th class="sortable" onclick="sortBy('done')">Done <span id="sort-done"></span></th>
+          <th></th> <!-- Empty header for the delete column -->
+        </tr>
+      </thead>
+      <tbody id="todo-body">
+        <!-- Rows will be dynamically added here -->
+      </tbody>
+    </table>
+  </div>
+
+<script>
+  let tasks = [];
+  let currentSortField = null; // Track current sorted column
+  let currentSortDirection = 'asc'; // Track sort direction ('asc' or 'desc')
+
+  async function fetchTasks() {
+    try {
+      const response = await fetch('/api/tasks');
+      if (response.ok) {
+        tasks = await response.json();
+        renderTasks();
+        updateSortingIndicators(); // Set default arrow for 'date_limitation'
+      } else {
+        console.error('Failed to fetch tasks');
+      }
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    }
+  }
+
+  function renderTasks() {
+    const todoTableBody = document.getElementById('todo-body');
+    todoTableBody.innerHTML = '';
+
+    tasks.forEach((task, index) => {
+      const row = document.createElement('tr');
+      row.className = task.done ? 'task-done' : '';
+
+      const deleteButtonHTML = task._id
+        ? `<button class="delete-btn" onclick="deleteTask('${task._id}')">X</button>`
+        : ''; // If _id is null, don't show the delete button
+
+      row.innerHTML = `
+        <td ondblclick="makeEditable(this, ${index}, 'name')">${task.name || ''}</td>
+        <td>
+          ${
+            task._id
+              ? task.category
+              : `<select onchange="saveEditDropdown(this, ${index}, 'category')">
+                   <option value="">-- Select Category --</option>
+                   <option value="Party">Party</option>
+                   <option value="Event">Event</option>
+                   <option value="Food">Food</option>
+                   <option value="Cafe">Cafe</option>
+                 </select>`
+          }
+        </td>
+        <td ondblclick="makeEditable(this, ${index}, 'date_limitation')">${task.date_limitation || 'None'}</td>
+        <td class="description-cell" onclick="toggleDescription(this)">${task.description || ''}</td>
+        <td ondblclick="makeEditable(this, ${index}, 'favourite_moment_lilli')">${task.favourite_moment_lilli || ''}</td>
+        <td ondblclick="makeEditable(this, ${index}, 'favourite_moment_jana')">${task.favourite_moment_jana || ''}</td>
+        <td>
+          <span class="done-circle ${task.done ? 'done' : ''}" onclick="toggleDone('${task._id}', ${task.done})"></span>
+        </td>
+        <td>
+          ${deleteButtonHTML}
+        </td>
+      `;
+
+      todoTableBody.appendChild(row);
+    });
+
+    // Add "Add Task" button row
+    const addRow = document.createElement('tr');
+    addRow.innerHTML = `
+      <td colspan="8" style="text-align: center;">
+        <button onclick="addTaskRow()" style="padding: 10px; background-color: #4b0082; color: white; border: none; border-radius: 5px; cursor: pointer;">Add Task</button>
+      </td>
+    `;
+    todoTableBody.appendChild(addRow);
+  }
+
+  function sortBy(field) {
+    if (currentSortField === field) {
+      currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      currentSortField = field;
+      currentSortDirection = 'asc';
+    }
+
+    tasks.sort((a, b) => {
+      let aValue = a[field] || '';
+      let bValue = b[field] || '';
+
+      if (field === 'date_limitation') {
+        aValue = parseDate(aValue);
+        bValue = parseDate(bValue);
+      } else if (field === 'done') {
+        aValue = a[field] ? 1 : 0;
+        bValue = b[field] ? 1 : 0;
+      }
+
+      if (aValue < bValue) return currentSortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return currentSortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    renderTasks();
+    updateSortingIndicators(field);
+  }
+
+  function parseDate(dateString) {
+    if (!dateString || dateString === 'None') return new Date(0);
+    const [day, month, year] = dateString.split('.');
+    return new Date(`${year}-${month}-${day}`);
+  }
+
+  function updateSortingIndicators(field = 'date_limitation') {
+    const sortFields = ['category', 'date_limitation', 'done'];
+    sortFields.forEach((sortField) => {
+      const sortIndicator = document.getElementById(`sort-${sortField}`);
+      if (sortIndicator) {
+        sortIndicator.textContent = (sortField === field)
+          ? (currentSortDirection === 'asc' ? '↑' : '↓')
+          : '';
+      }
+    });
+
+    document.querySelectorAll('th').forEach((th) => th.classList.remove('sorted'));
+    const sortedColumn = document.querySelector(`th.sortable[onclick="sortBy('${field}')"]`);
+    if (sortedColumn) sortedColumn.classList.add('sorted');
+  }
+
+  async function toggleDone(id, currentState) {
+    if (!id) return; // If no id (not saved), do nothing
+    try {
+      const response = await fetch(`/api/tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ done: !currentState })
+      });
+      if (response.ok) {
+        fetchTasks();
+      } else {
+        console.error('Failed to toggle task state');
+      }
+    } catch (error) {
+      console.error('Error toggling task:', error);
+    }
+  }
+
+  async function deleteTask(id) {
+    if (!id) {
+      // If the task is not saved yet (no _id), just remove it locally
+      tasks = tasks.filter((task) => task._id !== id);
+      renderTasks();
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/tasks/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        tasks = tasks.filter((task) => task._id !== id);
+        renderTasks();
+        console.log('Task deleted successfully');
+      } else {
+        console.error('Failed to delete task');
+      }
+    } catch (error) {
+      console.error('Error deleting task:', error);
+    }
+  }
+
+  function addTaskRow() {
+    const newTask = {
+      name: "",
+      date_limitation: "None",
+      description: "",
+      favourite_moment_lilli: "",
+      favourite_moment_jana: "",
+      category: "",
+      done: false,
+      _id: null,
+    };
+
+    tasks.push(newTask);
+    renderTasks();
+
+    const todoTableBody = document.getElementById('todo-body');
+    const rowIndex = tasks.length - 1;
+    const lastRow = todoTableBody.querySelectorAll('tr')[rowIndex];
+    const nameCell = lastRow.querySelector('td:nth-child(1)');
+    makeEditable(nameCell, rowIndex, 'name');
+  }
+
+  async function saveNewTask(task) {
+    if (!task.name || !task.category) {
+      // Only save if both are present
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(task),
+      });
+
+      if (response.ok) {
+        const savedTask = await response.json();
+        task._id = savedTask._id;
+        console.log('Task added successfully');
+        renderTasks();
+      } else {
+        console.error('Failed to add task');
+      }
+    } catch (error) {
+      console.error('Error adding task:', error);
+    }
+  }
+
+  async function saveEdit(td, rowIndex, field, newValue) {
+    const task = tasks[rowIndex];
+    const originalValue = task[field];
+
+    // If nothing changed, just revert
+    if (newValue === originalValue) {
+      td.textContent = originalValue;
+      return;
+    }
+
+    // Update local data
+    task[field] = newValue;
+    td.textContent = newValue;
+
+    // If the task is new and we have both name and category, save immediately
+    if (!task._id && task.name && task.category) {
+      await saveNewTask(task);
+    } else if (task._id) {
+      // Existing task, update on the server
+      try {
+        const response = await fetch(`/api/tasks/${task._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [field]: newValue }),
+        });
+
+        if (!response.ok) {
+          console.error('Failed to update task');
+          td.textContent = originalValue; // revert on error
+          task[field] = originalValue;
+        } else {
+          console.log('Task updated successfully');
+        }
+      } catch (error) {
+        td.textContent = originalValue; // revert on error
+        task[field] = originalValue;
+        console.error('Error updating task:', error);
+      }
+    }
+  }
+
+  function makeEditable(td, rowIndex, field) {
+    const currentValue = td.textContent;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = currentValue;
+    input.style.width = '100%';
+
+    td.innerHTML = '';
+    td.appendChild(input);
+    input.focus();
+
+    input.addEventListener('blur', () => saveEdit(td, rowIndex, field, input.value));
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        saveEdit(td, rowIndex, field, input.value);
+      } else if (e.key === 'Escape') {
+        td.textContent = currentValue;
+      }
+    });
+  }
+
+  function saveEditDropdown(select, rowIndex, field) {
+    const newValue = select.value;
+    const task = tasks[rowIndex];
+
+    if (!newValue) {
+      alert("Please select a valid category.");
+      return;
+    }
+
+    // Temporarily set the cell text while updating
+    const td = select.parentElement;
+    const originalValue = task[field];
+
+    task[field] = newValue;
+    td.textContent = newValue;
+
+    // If new task and both name and category are set, save it
+    if (!task._id && task.name && task.category) {
+      saveNewTask(task);
+    } else if (task._id) {
+      // Existing task, update on the server
+      fetch(`/api/tasks/${task._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: newValue }),
+      }).then((response) => {
+        if (!response.ok) {
+          console.error('Failed to update task');
+          td.textContent = originalValue;
+          task[field] = originalValue;
+        } else {
+          console.log('Task updated successfully');
+        }
+      }).catch((error) => {
+        console.error('Error updating task:', error);
+        td.textContent = originalValue;
+        task[field] = originalValue;
+      });
+    }
+  }
+
+  function toggleDescription(td) {
+    td.classList.toggle('expanded');
+  }
+
+  fetchTasks();
+  updateSortingIndicators();
+</script>
+</body>
+</html>
